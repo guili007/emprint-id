@@ -31,4 +31,7 @@ urlpatterns = [
 
     # v5/audit — Module 05 Eyeshield Audit (trail immuable + conformité)
     path('api/v5/audit/', include('apps.audit.urls')),
+
+    # v6/comms — Module 06 Eyeshield Comms (SIM/IMEI + CDR + corrélation)
+    path('api/v6/comms/', include('apps.comms.urls')),
 ]
