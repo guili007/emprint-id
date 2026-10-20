@@ -3,14 +3,23 @@ import { useNavigate } from 'react-router-dom';
 import { dataOntologyApi } from '../api/client';
 import type { CitizenProfile } from '../types';
 
-// TODO(human): Implémenter sectorColor(sector: string) → string (classe Tailwind).
-// Chaque secteur de données mérite une couleur distincte pour faciliter
-// la lecture rapide de l'ontologie. Exemple de secteurs :
-// BANKING, HEALTH, JUSTICE, IDENTITY, FISCAL, EDUCATION, CIVIL, LAND, TELECOM, PUBLIC_SVC
-// Contrainte : les couleurs doivent être lisibles sur fond navy-700.
-function sectorColor(_sector: string): string {
-  // TODO(human) — remplace ce placeholder par ton mapping secteur → couleur
-  return 'text-white/50';
+// Palette sémantique : chaque couleur reflète la nature du secteur.
+// JUSTICE en orange (pas rouge) pour éviter la collision avec les alertes CRITICAL.
+// IDENTITY en teal — accent primaire de l'app, cohérence avec le logo EmPrint-iD.
+function sectorColor(sector: string): string {
+  const colors: Record<string, string> = {
+    BANKING:    'text-blue-400',
+    HEALTH:     'text-green-400',
+    JUSTICE:    'text-orange-400',
+    IDENTITY:   'text-teal-400',
+    FISCAL:     'text-yellow-400',
+    EDUCATION:  'text-purple-400',
+    CIVIL:      'text-sky-400',
+    LAND:       'text-amber-400',
+    TELECOM:    'text-cyan-400',
+    PUBLIC_SVC: 'text-indigo-400',
+  };
+  return colors[sector] ?? 'text-white/50';
 }
 
 export default function CitizenProfilePage() {
