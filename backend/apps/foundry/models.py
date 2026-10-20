@@ -11,6 +11,19 @@ Modèles :
   GovCareerEvent   : snapshot événement de carrière (promotion, mutation, retraite…)
   GovBudgetLine    : ligne de budget public par ministère (données mock v1)
   GovContract      : marché public (données mock v1)
+
+  --- Health ---
+  HealthPatient    : dossier patient unifié (lié à national_id EmPrint-iD)
+  HealthVisit      : visite médicale (append-only)
+  HealthVaccination: carnet vaccinal numérique (append-only)
+  HealthPrescription: ordonnance (append-only)
+  EpidemioAlert    : alerte épidémiologique (mock v1, DHIS2 prévu v2)
+
+  --- Edu (EduFirst cache) ---
+  EduSchool        : école partenaire EduFirst synchronisée
+  EduStudent       : élève (lié à national_id EmPrint-iD après vérification)
+  EduBulletin      : bulletin de notes synchronisé depuis EduFirst
+  EduNoteBulletin  : détail par matière d'un bulletin
 """
 import uuid
 
@@ -600,3 +613,148 @@ class EpidemioAlert(models.Model):
 
     def __str__(self):
         return f"[{self.niveau}] {self.disease_name} — {self.province} ({self.statut})"
+
+
+# ── EDU — Eyeshield Edu ────────────────────────────────────────────────────────
+#
+# Module 03 Edu : cache local des données scolaires EduFirst (edufirst.pro).
+# Source : api.edufirst.pro — synchronisation via la commande `sync_edufirst`.
+#
+# Lien EmPrint-iD ↔ EduFirst :
+#   - EduFirst identifie les élèves par `matricule` (ex. "KAMPAL-7K4M")
+#   - EmPrint-iD identifie les citoyens par `national_id` (biométrique)
+#   - La jonction est établie lors d'une vérification d'identité :
+#     un agent confirme que national_id X correspond à l'élève EduFirst Y
+#   - Le champ `national_id` dans EduStudent est null tant qu'aucune
+#     vérification n'a été effectuée.
+
+
+class EduSchool(models.Model):
+    """
+    École partenaire EduFirst synchronisée dans le cache local.
+
+    Chaque école est un abonné EduFirst (multi-tenant). On stocke son
+    identifiant EduFirst pour dédupliquer les syncs.
+    """
+    edufirst_school_id = models.PositiveIntegerField(
+        unique=True,
+        help_text="PK de l'école dans la base EduFirst (School.id)."
+    )
+    name    = models.CharField(max_length=200)
+    country = models.CharField(max_length=50, blank=True)
+    city    = models.CharField(max_length=100, blank=True)
+    is_active  = models.BooleanField(default=True)
+    last_synced = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "école EduFirst"
+        ordering = ['country', 'name']
+
+    def __str__(self):
+        return f"{self.name} ({self.country})"
+
+
+class EduStudent(models.Model):
+    """
+    Élève synchronisé depuis EduFirst.
+
+    `national_id` est null jusqu'à ce qu'un agent EmPrint-iD effectue
+    une vérification biométrique et associe l'élève à son identité civile.
+    """
+    edufirst_student_id = models.PositiveIntegerField(
+        unique=True,
+        help_text="StudentProfile.id dans EduFirst."
+    )
+    school     = models.ForeignKey(EduSchool, on_delete=models.CASCADE,
+                                   related_name='students')
+
+    # Identité scolaire (issue de EduFirst)
+    matricule  = models.CharField(max_length=30, blank=True, db_index=True,
+                                  help_text="Matricule EduFirst (ex. KAMPAL-7K4M).")
+    nom        = models.CharField(max_length=100)
+    prenom     = models.CharField(max_length=100)
+    date_naissance = models.DateField()
+
+    # Jonction EmPrint-iD (renseigné après vérification biométrique)
+    national_id = models.CharField(max_length=20, null=True, blank=True,
+                                   db_index=True,
+                                   help_text="ID national EmPrint-iD — null avant vérification.")
+
+    synced_at  = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "élève EduFirst"
+        ordering = ['nom', 'prenom']
+        indexes = [
+            models.Index(fields=['school', 'nom']),
+        ]
+
+    def __str__(self):
+        return f"{self.nom} {self.prenom} ({self.matricule})"
+
+
+class EduBulletin(models.Model):
+    """
+    Bulletin de notes synchronisé depuis EduFirst.
+
+    Un bulletin couvre une période (trimestre, semestre ou annuel)
+    pour un élève dans une année scolaire donnée.
+    Lecture seule — jamais modifié ni supprimé localement.
+    """
+    MENTION_CHOICES = [
+        ('A', 'Grande Distinction'),
+        ('B', 'Distinction'),
+        ('C', 'Satisfaction'),
+        ('D', 'Réussite'),
+        ('E', 'Échec'),
+    ]
+
+    edufirst_bulletin_id = models.PositiveIntegerField(
+        unique=True,
+        help_text="Bulletin.id dans EduFirst."
+    )
+    student        = models.ForeignKey(EduStudent, on_delete=models.CASCADE,
+                                       related_name='bulletins')
+
+    periode        = models.CharField(max_length=50,
+                                      help_text="Ex. '1er trimestre', 'Annuel'.")
+    annee_scolaire = models.CharField(max_length=9,
+                                      help_text="Ex. '2025-2026'.")
+    moyenne        = models.DecimalField(max_digits=5, decimal_places=2)
+    mention        = models.CharField(max_length=1, choices=MENTION_CHOICES, blank=True)
+    appreciation   = models.TextField(blank=True)
+    conduite       = models.CharField(max_length=30, blank=True)
+    synced_at      = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "bulletin EduFirst"
+        unique_together = ['edufirst_bulletin_id']
+        ordering = ['-annee_scolaire', 'periode']
+        indexes = [
+            models.Index(fields=['student', 'annee_scolaire']),
+        ]
+
+    def __str__(self):
+        return f"Bulletin {self.student} — {self.periode} {self.annee_scolaire} ({self.moyenne})"
+
+
+class EduNoteBulletin(models.Model):
+    """
+    Détail par matière d'un bulletin (note sur 100 ou note_max variable).
+
+    Lecture seule — jamais modifié ni supprimé localement.
+    """
+    bulletin     = models.ForeignKey(EduBulletin, on_delete=models.CASCADE,
+                                     related_name='notes')
+    matiere_nom  = models.CharField(max_length=100)
+    note         = models.DecimalField(max_digits=5, decimal_places=2)
+    note_max     = models.DecimalField(max_digits=5, decimal_places=2, default=100)
+    appreciation = models.CharField(max_length=500, blank=True)
+
+    class Meta:
+        verbose_name = "note bulletin EduFirst"
+        ordering = ['matiere_nom']
+
+    def __str__(self):
+        return f"{self.matiere_nom}: {self.note}/{self.note_max}"

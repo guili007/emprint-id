@@ -13,4 +13,7 @@ urlpatterns = [
 
     # Health — dossier patient unifié + épidémiologie
     path('health/', include('apps.foundry.health.urls')),
+
+    # Edu — dossiers scolaires EduFirst (cache local sync_edufirst)
+    path('edu/', include('apps.foundry.edu.urls')),
 ]

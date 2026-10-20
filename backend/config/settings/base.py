@@ -89,6 +89,14 @@ SIGA_BASE_URL = os.environ.get('SIGA_BASE_URL', '')
 SIGA_SERVICE_USER = os.environ.get('SIGA_SERVICE_USER', '')
 SIGA_SERVICE_PASSWORD = os.environ.get('SIGA_SERVICE_PASSWORD', '')
 
+# ── Foundry Edu : connexion EduFirst ─────────────────────────────────────────
+# Lues par sync_edufirst (apps/foundry/management/commands/sync_edufirst.py).
+# En production : EDUFIRST_BASE_URL=https://api.edufirst.pro
+# Ne PAS committer les vraies valeurs.
+EDUFIRST_BASE_URL         = os.environ.get('EDUFIRST_BASE_URL', 'https://api.edufirst.pro')
+EDUFIRST_SERVICE_EMAIL    = os.environ.get('EDUFIRST_SERVICE_EMAIL', '')
+EDUFIRST_SERVICE_PASSWORD = os.environ.get('EDUFIRST_SERVICE_PASSWORD', '')
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'config.auth.RoleJWTAuthentication',
