@@ -37,4 +37,7 @@ urlpatterns = [
 
     # v7/field — Module 07 Eyeshield Field (agents terrain + sync différée)
     path('api/v7/field/', include('apps.field.urls')),
+
+    # v8/justice — Module 08 Eyeshield Justice (casier + mandats + alertes judiciaires)
+    path('api/v8/justice/', include('apps.justice.urls')),
 ]

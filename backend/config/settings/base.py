@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     'apps.audit',
     'apps.comms',
     'apps.field',
+    'apps.justice',
 ]
 
 MIDDLEWARE = [
