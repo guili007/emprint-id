@@ -28,4 +28,7 @@ urlpatterns = [
 
     # v4/intel — Module 04 Eyeshield Intel (renseignement + graphe + menaces)
     path('api/v4/intel/', include('apps.intel.urls')),
+
+    # v5/audit — Module 05 Eyeshield Audit (trail immuable + conformité)
+    path('api/v5/audit/', include('apps.audit.urls')),
 ]

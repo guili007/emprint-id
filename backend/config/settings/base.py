@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     'apps.data',
     'apps.foundry',
     'apps.intel',
+    'apps.audit',
 ]
 
 MIDDLEWARE = [
