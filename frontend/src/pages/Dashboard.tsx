@@ -1,9 +1,11 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useWebSocket } from '../hooks/useWebSocket';
 import AlertBanner from '../components/AlertBanner';
-import type { AgentRole } from '../types';
+import type { AgentRole, IntelStats } from '../types';
 import { ROLE_LABELS } from '../types';
+import { intelApi } from '../api/client';
 
 export default function Dashboard() {
   const { role, username, logout } = useAuth();
@@ -69,12 +71,17 @@ function RoleDashboard({ role, onScan }: { role: AgentRole; onScan: () => void }
       return <HealthDashboard onScan={onScan} />;
     case 'ROLE_ADMIN':
       return <AdminDashboard onScan={onScan} />;
+    case 'ROLE_INTEL':
+      return <IntelDashboard onScan={onScan} />;
+    case 'ROLE_EDU':
+      return <EduDashboard onScan={onScan} />;
   }
 }
 
 // ─── POLICE ───────────────────────────────────────────────────────────────────
 
 function PoliceDashboard({ onScan }: { onScan: () => void }) {
+  const navigate = useNavigate();
   return (
     <div className="space-y-4">
       <SectionTitle>TABLEAU DE BORD — POLICE</SectionTitle>
@@ -90,7 +97,7 @@ function PoliceDashboard({ onScan }: { onScan: () => void }) {
         <p className="text-white/30 text-xs font-mono uppercase">Accès rapide</p>
         <QuickAction icon="⚠" label="Signaler incident" />
         <QuickAction icon="📋" label="Consulter watchlist" />
-        <QuickAction icon="🔍" label="Recherche par national ID" />
+        <QuickAction icon="🔍" label="Recherche par national ID" onClick={() => navigate('/citizen/profile')} />
       </div>
 
       <Note>
@@ -208,6 +215,7 @@ function HealthDashboard({ onScan }: { onScan: () => void }) {
 // ─── ADMIN ────────────────────────────────────────────────────────────────────
 
 function AdminDashboard({ onScan }: { onScan: () => void }) {
+  const navigate = useNavigate();
   return (
     <div className="space-y-4">
       <SectionTitle>ADMINISTRATION EYESHIELD</SectionTitle>
@@ -226,11 +234,79 @@ function AdminDashboard({ onScan }: { onScan: () => void }) {
         <QuickAction icon="📋" label="Gérer la watchlist" />
         <QuickAction icon="👥" label="Agents & permissions" />
         <QuickAction icon="📊" label="Rapports & audit trail" />
-        <QuickAction icon="⚙" label="Configuration système" />
+        <QuickAction icon="⚠" label="Alertes Intel" onClick={() => navigate('/intel/alerts')} />
+        <QuickAction icon="🌍" label="Zones de menace" onClick={() => navigate('/intel/threats')} />
       </div>
 
       <Note>
         Les alertes temps réel arrivent via WebSocket sur ce tableau de bord.
+      </Note>
+    </div>
+  );
+}
+
+// ─── INTEL ────────────────────────────────────────────────────────────────────
+
+function IntelDashboard({ onScan }: { onScan: () => void }) {
+  const navigate = useNavigate();
+  const [stats, setStats] = useState<IntelStats | null>(null);
+
+  // Charge les stats au montage — erreur silencieuse, les "—" restent affichés
+  useEffect(() => {
+    intelApi.getStats()
+      .then(r => setStats(r.data))
+      .catch(() => {});
+  }, []);
+
+  return (
+    <div className="space-y-4">
+      <SectionTitle>EYESHIELD INTEL</SectionTitle>
+
+      <div className="grid grid-cols-2 gap-3">
+        <StatCard label="Alertes ouvertes" value={stats ? String(stats.open_alerts) : '—'} sub="en cours" color="red" />
+        <StatCard label="Critiques" value={stats ? String(stats.critical_alerts) : '—'} sub="haute priorité" color="red" />
+        <StatCard label="Zones actives" value={stats ? String(stats.active_threat_zones) : '—'} sub="menaces terrain" />
+        <StatCard label="Liens réseau" value={stats ? String(stats.total_network_links) : '—'} sub="total graphe" color="teal" />
+      </div>
+
+      <ScanButton onClick={onScan} label="IDENTIFICATION BIOMÉTRIQUE" />
+
+      <div className="space-y-2">
+        <p className="text-white/30 text-xs font-mono uppercase">Renseignement</p>
+        <QuickAction icon="⚠" label="Alertes Intel" onClick={() => navigate('/intel/alerts')} />
+        <QuickAction icon="🌍" label="Zones de menace" onClick={() => navigate('/intel/threats')} />
+        <QuickAction icon="🕸" label="Graphe réseau" onClick={() => navigate('/intel/network')} />
+        <QuickAction icon="🔍" label="Profil citoyen" onClick={() => navigate('/citizen/profile')} />
+      </div>
+
+      <Note>
+        Accès complet aux renseignements classifiés. Toute consultation est journalisée.
+      </Note>
+    </div>
+  );
+}
+
+// ─── EDU ──────────────────────────────────────────────────────────────────────
+
+function EduDashboard({ onScan }: { onScan: () => void }) {
+  return (
+    <div className="space-y-4">
+      <SectionTitle>ÉDUCATION — VÉRIFICATION</SectionTitle>
+
+      <ScanButton onClick={onScan} label="IDENTIFIER L'ÉLÈVE / ÉTUDIANT" />
+
+      <div className="bg-navy-700 rounded-xl p-4 border border-white/5 space-y-2">
+        <p className="text-white/40 text-xs font-mono uppercase">Données accessibles</p>
+        <ul className="text-white/60 text-sm font-mono space-y-1">
+          <li>✓ Nom complet</li>
+          <li>✓ Date de naissance</li>
+          <li>✓ Numéro national (pour inscription)</li>
+          <li>✓ Données EduFirst (si synchronisées)</li>
+        </ul>
+      </div>
+
+      <Note>
+        Accès limité aux données éducatives. Aucune donnée judiciaire ou financière.
       </Note>
     </div>
   );
@@ -279,9 +355,13 @@ function StatCard({
   );
 }
 
-function QuickAction({ icon, label }: { icon: string; label: string }) {
+// onClick optionnel — les actions sans navigation fonctionnent toujours
+function QuickAction({ icon, label, onClick }: { icon: string; label: string; onClick?: () => void }) {
   return (
-    <button className="w-full flex items-center gap-3 px-4 py-3 bg-navy-700 hover:bg-navy-600 rounded-xl border border-white/5 text-white/70 hover:text-white font-mono text-sm text-left transition-colors">
+    <button
+      onClick={onClick}
+      className="w-full flex items-center gap-3 px-4 py-3 bg-navy-700 hover:bg-navy-600 rounded-xl border border-white/5 text-white/70 hover:text-white font-mono text-sm text-left transition-colors"
+    >
       <span className="text-base">{icon}</span>
       <span>{label}</span>
       <span className="ml-auto text-white/20">›</span>

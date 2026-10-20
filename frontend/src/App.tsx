@@ -3,6 +3,10 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import VerifyPage from './pages/VerifyPage';
+import IntelAlertsPage from './pages/IntelAlertsPage';
+import ThreatZonesPage from './pages/ThreatZonesPage';
+import NetworkGraphPage from './pages/NetworkGraphPage';
+import CitizenProfilePage from './pages/CitizenProfilePage';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -40,6 +44,38 @@ export default function App() {
             element={
               <PrivateRoute>
                 <VerifyPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/intel/alerts"
+            element={
+              <PrivateRoute>
+                <IntelAlertsPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/intel/threats"
+            element={
+              <PrivateRoute>
+                <ThreatZonesPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/intel/network"
+            element={
+              <PrivateRoute>
+                <NetworkGraphPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/citizen/profile"
+            element={
+              <PrivateRoute>
+                <CitizenProfilePage />
               </PrivateRoute>
             }
           />
