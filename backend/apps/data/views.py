@@ -1,9 +1,17 @@
 """
 Vues Module 02 — Eyeshield Data.
 
-GET /api/v2/data/citizens/search/  → recherche unifiée citoyens
-GET /api/v2/data/stats/            → analytics globales (ADMIN seulement)
-GET /api/v2/data/logs/             → logs de vérification (filtrés par rôle)
+v2 (existant) :
+  GET  /api/v2/data/citizens/search/          → recherche unifiée citoyens
+  GET  /api/v2/data/stats/                    → analytics globales (ADMIN)
+  GET  /api/v2/data/logs/                     → logs de vérification
+
+v3 (ontologie) :
+  GET  /api/v3/data/sources/                  → liste des sources actives
+  GET  /api/v3/data/citizens/<national_id>/profile/ → profil ontologique unifié
+  POST /api/v3/data/links/                    → créer/mettre à jour un lien
+  GET  /api/v3/data/links/<national_id>/      → tous les liens d'un citoyen
+  GET  /api/v3/data/ontology/stats/           → couverture (ADMIN)
 """
 from datetime import timedelta
 
@@ -13,12 +21,25 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from django.db.models import Count as DjCount
+from rest_framework import status as http_status
+
 from apps.biometric.models import VerificationLog, WatchlistEntry
 from apps.citizens.models import Citizen
+from apps.data.models import CitizenDataLink, DataSource
 from config.signing import sign_response
 
 from .permissions import IsAnalyticsAccess, IsDataReader
-from .serializers import CitizenSearchSerializer, StatsSerializer, VerificationLogSerializer
+from .serializers import (
+    CitizenDataLinkCreateSerializer,
+    CitizenDataLinkSerializer,
+    CitizenProfileSerializer,
+    CitizenSearchSerializer,
+    DataSourceSerializer,
+    OntologyStatsSerializer,
+    StatsSerializer,
+    VerificationLogSerializer,
+)
 
 
 class StandardPagination(PageNumberPagination):
@@ -192,3 +213,182 @@ class StatsView(APIView):
 
         serializer = StatsSerializer(stats)
         return Response(sign_response(serializer.data))
+
+
+# ── Ontologie (v3) ────────────────────────────────────────────────────────────
+
+# Mapping rôle JWT → secteurs de données autorisés (RBAC-to-sector v1)
+# Les admins voient tout ; les autres ne voient que leur secteur.
+_ROLE_TO_SECTORS = {
+    'ROLE_BANK':            {'BANKING', 'IDENTITY'},
+    'ROLE_HEALTH':          {'HEALTH', 'IDENTITY'},
+    'ROLE_POLICE':          {'CIVIL', 'JUSTICE', 'IDENTITY'},
+    'ROLE_BORDER':          {'JUSTICE', 'IDENTITY'},
+    'ROLE_EDU':             {'EDUCATION', 'IDENTITY'},
+    'ROLE_ADMIN':           None,            # None = tous les secteurs
+    'ROLE_WATCHLIST_ADMIN': None,
+}
+
+
+def _allowed_sectors(role: str):
+    """Retourne le set de secteurs autorisés pour un rôle, ou None (=tous)."""
+    return _ROLE_TO_SECTORS.get(role, set())
+
+
+class DataSourceListView(APIView):
+    """
+    GET /api/v3/data/sources/
+
+    Liste les sources actives visibles selon le rôle de l'appelant.
+    Filtre ?sector= pour n'afficher qu'un secteur.
+    """
+    permission_classes = [IsDataReader]
+
+    def get(self, request):
+        role    = getattr(request.user, 'role', '')
+        sectors = _allowed_sectors(role)
+
+        qs = DataSource.objects.filter(is_active=True)
+
+        if sectors is not None:
+            # Secteurs restreints selon le rôle
+            qs = qs.filter(sector__in=sectors)
+
+        sector_filter = request.query_params.get('sector', '').strip().upper()
+        if sector_filter:
+            qs = qs.filter(sector=sector_filter)
+
+        serializer = DataSourceSerializer(qs, many=True)
+        return Response(serializer.data)
+
+
+class CitizenProfileView(APIView):
+    """
+    GET /api/v3/data/citizens/<national_id>/profile/
+
+    Retourne le profil ontologique unifié d'un citoyen :
+    tous ses liens vers des sources externes, filtrés selon le rôle de l'appelant.
+    """
+    permission_classes = [IsDataReader]
+
+    def get(self, request, national_id: str):
+        role    = getattr(request.user, 'role', '')
+        sectors = _allowed_sectors(role)
+
+        qs = CitizenDataLink.objects.select_related(
+            'source', 'verified_by'
+        ).filter(national_id=national_id)
+
+        if sectors is not None:
+            qs = qs.filter(source__sector__in=sectors)
+
+        links = list(qs.order_by('source__sector', 'source__code'))
+
+        linked_sectors = sorted({lnk.source.sector for lnk in links})
+        profile = {
+            'national_id':    national_id,
+            'links':          links,
+            'total_links':    len(links),
+            'linked_sectors': linked_sectors,
+        }
+
+        serializer = CitizenProfileSerializer(profile)
+        return Response(serializer.data)
+
+
+class DataLinkListCreateView(APIView):
+    """
+    POST /api/v3/data/links/        → créer ou mettre à jour un lien (ADMIN)
+    GET  /api/v3/data/links/<id>/   → tous les liens d'un citoyen (IsDataReader)
+    """
+    pagination_class = StandardPagination
+
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsAnalyticsAccess()]
+        return [IsDataReader()]
+
+    def post(self, request):
+        """Upsert d'un lien national_id ↔ source externe."""
+        serializer = CitizenDataLinkCreateSerializer(
+            data=request.data, context={'request': request}
+        )
+        serializer.is_valid(raise_exception=True)
+        link = serializer.save()
+        return Response(
+            CitizenDataLinkSerializer(link).data,
+            status=http_status.HTTP_201_CREATED,
+        )
+
+
+class CitizenLinksView(APIView):
+    """
+    GET /api/v3/data/links/<national_id>/
+
+    Tous les liens d'un citoyen, filtrés selon le rôle.
+    """
+    permission_classes = [IsDataReader]
+    pagination_class = StandardPagination
+
+    def get(self, request, national_id: str):
+        role    = getattr(request.user, 'role', '')
+        sectors = _allowed_sectors(role)
+
+        qs = CitizenDataLink.objects.select_related(
+            'source', 'verified_by'
+        ).filter(national_id=national_id)
+
+        if sectors is not None:
+            qs = qs.filter(source__sector__in=sectors)
+
+        paginator = self.pagination_class()
+        page      = paginator.paginate_queryset(qs.order_by('source__sector'), request)
+        serializer = CitizenDataLinkSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+
+class OntologyStatsView(APIView):
+    """
+    GET /api/v3/data/ontology/stats/
+
+    Statistiques de couverture de la couche ontologie — ADMIN seulement.
+    """
+    permission_classes = [IsAnalyticsAccess]
+
+    def get(self, request):
+        total_links     = CitizenDataLink.objects.count()
+        verified_links  = CitizenDataLink.objects.filter(verified_at__isnull=False).count()
+        citizens_linked = CitizenDataLink.objects.values('national_id').distinct().count()
+
+        coverage_by_sector = list(
+            CitizenDataLink.objects
+            .values('source__sector')
+            .annotate(count=DjCount('id'))
+            .order_by('-count')
+        )
+
+        top_sources = list(
+            CitizenDataLink.objects
+            .values('source__code', 'source__name')
+            .annotate(count=DjCount('id'))
+            .order_by('-count')[:10]
+        )
+
+        stats = {
+            'total_sources':      DataSource.objects.count(),
+            'active_sources':     DataSource.objects.filter(is_active=True).count(),
+            'total_links':        total_links,
+            'verified_links':     verified_links,
+            'citizens_linked':    citizens_linked,
+            'coverage_by_sector': [
+                {'sector': r['source__sector'], 'count': r['count']}
+                for r in coverage_by_sector
+            ],
+            'top_sources': [
+                {'code': r['source__code'], 'name': r['source__name'], 'count': r['count']}
+                for r in top_sources
+            ],
+        }
+
+        serializer = OntologyStatsSerializer(stats)
+        return Response(serializer.data)

@@ -20,6 +20,9 @@ urlpatterns = [
     # v2/data — Module 02 Eyeshield Data (recherche unifiée + analytics + logs)
     path('api/v2/data/', include('apps.data.urls')),
 
+    # v3/data — Module 02 Eyeshield Data : couche ontologie (liens inter-sources)
+    path('api/v3/data/', include('apps.data.ontology_urls')),
+
     # v3/foundry — Module 03 Eyeshield Foundry (KYC bancaire + fraude)
     path('api/v3/foundry/', include('apps.foundry.urls')),
 ]
