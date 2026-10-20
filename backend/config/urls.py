@@ -25,4 +25,7 @@ urlpatterns = [
 
     # v3/foundry — Module 03 Eyeshield Foundry (KYC bancaire + fraude)
     path('api/v3/foundry/', include('apps.foundry.urls')),
+
+    # v4/intel — Module 04 Eyeshield Intel (renseignement + graphe + menaces)
+    path('api/v4/intel/', include('apps.intel.urls')),
 ]

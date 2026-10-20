@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     'apps.biometric',
     'apps.data',
     'apps.foundry',
+    'apps.intel',
 ]
 
 MIDDLEWARE = [
