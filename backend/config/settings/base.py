@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     # Apps
     'apps.citizens',
     'apps.biometric',
+    'apps.data',
 ]
 
 MIDDLEWARE = [

@@ -16,4 +16,7 @@ urlpatterns = [
 
     # v2 — biométrie (face + watchlist)
     path('api/v2/', include('apps.biometric.urls')),
+
+    # v2/data — Module 02 Eyeshield Data (recherche unifiée + analytics + logs)
+    path('api/v2/data/', include('apps.data.urls')),
 ]
