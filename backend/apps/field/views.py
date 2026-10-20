@@ -279,14 +279,15 @@ def _is_duplicate_record(field_agent: FieldAgent, rec: dict) -> bool:
     """
     Vérifie si un record identique existe déjà pour cet agent.
 
-    TODO(human): Implémente la logique de détection de doublon.
-
     Un doublon est défini par la combinaison :
       - field_agent
       - offline_at  (même timestamp)
       - national_id (même citoyen, ou tous deux vides)
       - record_type (même type d'événement)
-
-    Utilise FieldRecord.objects.filter(...).exists() et retourne True/False.
     """
-    pass  # TODO(human)
+    return FieldRecord.objects.filter(
+        field_agent=field_agent,
+        offline_at=rec['offline_at'],
+        national_id=rec.get('national_id', ''),
+        record_type=rec['record_type'],
+    ).exists()
