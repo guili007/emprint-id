@@ -6,10 +6,6 @@ GET  /api/v2/watchlist/check/<citizen_id>/  → vérification watchlist par ID
 POST /api/v2/watchlist/         → ajout (WATCHLIST_ADMIN seulement)
 DELETE /api/v2/watchlist/<id>/  → désactivation (WATCHLIST_ADMIN seulement)
 """
-import hashlib
-import hmac
-import json
-from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
@@ -18,6 +14,7 @@ from rest_framework.throttling import UserRateThrottle
 from rest_framework.views import APIView
 
 from apps.citizens.models import Citizen
+from config.signing import sign_response as _sign_response
 from .exceptions import FaceNotFound, LivenessDetectionFailed, WatchlistHit
 from .models import VerificationLog, WatchlistEntry
 from .permissions import IsFieldAgent, IsWatchlistAdmin
@@ -25,17 +22,6 @@ from .serializers import FaceVerifySerializer, WatchlistEntrySerializer
 from .services import BiometricService
 
 _service = BiometricService()
-
-
-def _sign_response(payload: dict) -> dict:
-    """Ajoute une signature HMAC-SHA256 à la réponse (règle sécurité §10.1)."""
-    body = json.dumps(payload, sort_keys=True, default=str)
-    signature = hmac.new(
-        settings.HMAC_SECRET_KEY.encode(),
-        body.encode(),
-        hashlib.sha256
-    ).hexdigest()
-    return {**payload, 'hmac': signature}
 
 
 class FaceVerifyView(APIView):

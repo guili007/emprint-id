@@ -108,8 +108,17 @@ LIVENESS_THRESHOLD = float(os.environ.get('LIVENESS_THRESHOLD', 0.7))
 
 # Cryptographie
 HMAC_SECRET_KEY = os.environ.get('HMAC_SECRET_KEY', '')
-ECDSA_PRIVATE_KEY_PATH = os.environ.get('ECDSA_PRIVATE_KEY_PATH', '')
-ECDSA_PUBLIC_KEY_PATH = os.environ.get('ECDSA_PUBLIC_KEY_PATH', '')
+
+def _resolve_key_path(env_val: str) -> str:
+    """Résout un path relatif par rapport à la racine du projet (parent de backend/)."""
+    if not env_val:
+        return ''
+    from pathlib import Path as _Path
+    p = _Path(env_val)
+    return str(p if p.is_absolute() else BASE_DIR.parent / p)
+
+ECDSA_PRIVATE_KEY_PATH = _resolve_key_path(os.environ.get('ECDSA_PRIVATE_KEY_PATH', ''))
+ECDSA_PUBLIC_KEY_PATH  = _resolve_key_path(os.environ.get('ECDSA_PUBLIC_KEY_PATH', ''))
 
 # Redis / Channels
 # Dev : bascule sur InMemoryChannelLayer si Redis n'est pas disponible
