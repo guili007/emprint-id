@@ -167,7 +167,16 @@ def test_compliance_flag_already_reviewed_returns_409():
     3. Tenter un second PATCH vers DISMISSED sur le même flag
     4. Vérifier que le second PATCH retourne 409
     """
-    pass  # TODO(human)
+    client, _ = _client_for_role('ROLE_ADMIN')
+    flag = _make_flag()
+
+    # Premier PATCH : OPEN -> REVIEWED (doit réussir)
+    r1 = client.patch(f'/api/v5/audit/flags/{flag.pk}/status/', {'status': 'REVIEWED'})
+    assert r1.status_code == 200
+
+    # Second PATCH : REVIEWED -> DISMISSED (doit être refusé)
+    r2 = client.patch(f'/api/v5/audit/flags/{flag.pk}/status/', {'status': 'DISMISSED'})
+    assert r2.status_code == 409
 
 
 # ── AuditReportListCreateView ─────────────────────────────────────────────────
