@@ -238,5 +238,16 @@ def test_ontology_stats_403_for_bank():
 
 @pytest.mark.django_db
 def test_ontology_stats_coverage_by_sector():
-    # TODO(human) — implémenter ce test
-    pass
+    """coverage_by_sector liste chaque secteur représenté dans les liens."""
+    src_bank   = _make_source(code='RBK_CVR', sector='BANKING')
+    src_health = _make_source(code='HLT_CVR', sector='HEALTH')
+    _make_link('CD-CVR-001', src_bank)
+    _make_link('CD-CVR-002', src_health)
+
+    client   = _client_for_role('ROLE_ADMIN')
+    response = client.get('/api/v3/data/ontology/stats/')
+    assert response.status_code == 200
+
+    sectors_in_coverage = {row['sector'] for row in response.data['coverage_by_sector']}
+    assert 'BANKING' in sectors_in_coverage
+    assert 'HEALTH'  in sectors_in_coverage
