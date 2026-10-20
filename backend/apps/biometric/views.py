@@ -119,6 +119,10 @@ class WatchlistCheckView(APIView):
             .first()
         )
         if entry:
+            role = getattr(request.user, 'role', '')
+            # Silent Flagging Protocol §7: BANK ne voit jamais le niveau ni l'émetteur
+            if role == 'ROLE_BANK':
+                return Response(_sign_response({'on_watchlist': False}))
             return Response(_sign_response({
                 'on_watchlist': True,
                 'alert_level': entry.alert_level,
