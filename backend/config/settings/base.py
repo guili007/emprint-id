@@ -81,6 +81,14 @@ STATIC_URL = '/static/'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# ── Foundry Gov : connexion SIGA-RDC ────────────────────────────────────────
+# Ces variables sont lues par SIGAConnector (apps/foundry/gov/connector.py).
+# En développement, elles peuvent rester vides — sync_siga échouera proprement.
+# En production, les valoriser via les secrets de déploiement (ne PAS les committer).
+SIGA_BASE_URL = os.environ.get('SIGA_BASE_URL', '')
+SIGA_SERVICE_USER = os.environ.get('SIGA_SERVICE_USER', '')
+SIGA_SERVICE_PASSWORD = os.environ.get('SIGA_SERVICE_PASSWORD', '')
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'config.auth.RoleJWTAuthentication',

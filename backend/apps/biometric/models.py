@@ -22,6 +22,7 @@ class AgentProfile(models.Model):
         HEALTH = 'ROLE_HEALTH', 'Santé'
         ADMIN = 'ROLE_ADMIN', 'Administrateur'
         WATCHLIST_ADMIN = 'ROLE_WATCHLIST_ADMIN', 'Admin Watchlist'
+        GOV = 'ROLE_GOV', 'Agent Gouvernemental'
 
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='profile'
