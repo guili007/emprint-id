@@ -259,30 +259,39 @@ def recidivism_risk(national_id: str) -> dict:
     """
     Calcule un score de risque de récidive pour un citoyen.
 
-    TODO(human): Implémente la logique de calcul du score de récidive.
-
-    Le score doit prendre en compte :
-      - Le nombre total de condamnations (FELONY, MISDEMEANOR, INFRACTION)
-        → plus il y en a, plus le risque est élevé
-      - Le type le plus grave : FELONY > MISDEMEANOR > INFRACTION
-        → un seul FELONY suffit pour un score "HIGH"
-      - Les acquittements/grâces (ACQUITTAL, PARDON) ne comptent pas
-
-    Retourne un dict :
-      {
-        'score': int (0-100),
-        'level': 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL',
-        'conviction_count': int,
-        'has_felony': bool,
-      }
-
-    Seuils suggérés pour `level` :
-      0       → 'LOW'
-      1-2     → 'MEDIUM'
-      3-5     → 'HIGH'
-      6+      → 'CRITICAL'
-      mais si has_felony → minimum 'HIGH' quelle que soit la valeur
-
-    Utilise CriminalRecord.objects.filter(...) pour compter.
+    Seuls FELONY, MISDEMEANOR, INFRACTION comptent comme condamnations.
+    ACQUITTAL et PARDON sont exclus.
+    Un seul FELONY force le niveau minimum à HIGH.
     """
-    pass  # TODO(human)
+    convictions = CriminalRecord.objects.filter(
+        national_id=national_id,
+        record_type__in=['FELONY', 'MISDEMEANOR', 'INFRACTION'],
+    )
+    count     = convictions.count()
+    has_felony = convictions.filter(record_type='FELONY').exists()
+
+    # Score brut basé sur le nombre de condamnations
+    score = min(count * 15, 100)
+    if has_felony:
+        score = max(score, 75)
+
+    # Niveau qualitatif
+    if count == 0:
+        level = 'LOW'
+    elif count <= 2:
+        level = 'MEDIUM'
+    elif count <= 5:
+        level = 'HIGH'
+    else:
+        level = 'CRITICAL'
+
+    # Un FELONY seul élève le niveau minimum à HIGH
+    if has_felony and level in ('LOW', 'MEDIUM'):
+        level = 'HIGH'
+
+    return {
+        'score':            score,
+        'level':            level,
+        'conviction_count': count,
+        'has_felony':       has_felony,
+    }
