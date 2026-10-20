@@ -74,8 +74,19 @@ class WatchlistEntry(models.Model):
         ORANGE = 'ORANGE', 'Surveillance active'
         JAUNE = 'JAUNE', 'Information'
 
+    class Authority(models.TextChoices):
+        CIVIL = 'CIVIL', 'Autorité civile (Gouvernement / Police)'
+        MILITAIRE = 'MILITAIRE', 'Forces armées (FARDC / Défense)'
+        ETAT = 'ETAT', 'État — diffusion générale (civil + militaire)'
+
     citizen = models.ForeignKey(Citizen, on_delete=models.PROTECT, related_name='watchlist_entries')
     alert_level = models.CharField(max_length=10, choices=AlertLevel.choices)
+    authority = models.CharField(
+        max_length=15,
+        choices=Authority.choices,
+        default=Authority.CIVIL,
+        help_text="Détermine quel dashboard reçoit l'alerte silencieuse.",
+    )
     reason = models.TextField()
     issued_by = models.CharField(max_length=100, help_text="PNC, FARDC, BCC, Justice, INTERPOL…")
     issued_at = models.DateTimeField(auto_now_add=True)

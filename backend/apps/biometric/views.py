@@ -173,16 +173,27 @@ class TestAlertView(APIView):
     def post(self, request):
         from asgiref.sync import async_to_sync
         from channels.layers import get_channel_layer
+
+        authority = request.data.get('authority', 'CIVIL')
+        groups = {
+            'CIVIL':     ['security_dashboard'],
+            'MILITAIRE': ['military_dashboard'],
+            'ETAT':      ['security_dashboard', 'military_dashboard'],
+        }.get(authority, ['security_dashboard'])
+
+        payload = {
+            'type': 'watchlist_alert',
+            'alert_level': request.data.get('alert_level', 'ROUGE'),
+            'authority': authority,
+            'national_id': request.data.get('national_id', 'CG-KN-LWA-000147-X9'),
+            'reason': request.data.get('reason', 'SIMULATION TEST'),
+            'issued_by': 'Système de test',
+            'agent_id': request.user.pk,
+        }
+
         channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_send)(
-            'security_dashboard',
-            {
-                'type': 'watchlist_alert',
-                'alert_level': request.data.get('alert_level', 'ROUGE'),
-                'national_id': request.data.get('national_id', 'CG-KN-LWA-000147-X9'),
-                'reason': request.data.get('reason', 'SIMULATION TEST'),
-                'issued_by': 'Système de test',
-                'agent_id': request.user.pk,
-            }
-        )
-        return Response({'sent': True})
+        send = async_to_sync(channel_layer.group_send)
+        for group in groups:
+            send(group, payload)
+
+        return Response({'sent': True, 'groups': groups})

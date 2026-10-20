@@ -307,6 +307,13 @@ class BiometricService:
             .first()
         )
 
+    # Groupes WebSocket cibles par autorité émettrice
+    _AUTHORITY_GROUPS = {
+        'CIVIL':     ['security_dashboard'],
+        'MILITAIRE': ['military_dashboard'],
+        'ETAT':      ['security_dashboard', 'military_dashboard'],
+    }
+
     def _send_silent_alert(
         self,
         citizen: Citizen,
@@ -314,27 +321,31 @@ class BiometricService:
         agent_user_id: int,
     ) -> None:
         """
-        Envoie une alerte silencieuse au dashboard de sécurité via Redis pub/sub.
-        Le suspect ne voit aucun changement à l'écran.
-        Les agents superviseurs reçoivent une notification push immédiate.
+        Envoie une alerte silencieuse aux dashboards concernés via channel layer.
+
+        Routing par autorité :
+          CIVIL     → security_dashboard  (Police / Gouvernement)
+          MILITAIRE → military_dashboard  (FARDC / Défense)
+          ETAT      → les deux groupes simultanément
         """
+        groups = self._AUTHORITY_GROUPS.get(entry.authority, ['security_dashboard'])
+        payload = {
+            'type': 'watchlist_alert',
+            'alert_level': entry.alert_level,
+            'authority': entry.authority,
+            'national_id': citizen.national_id,
+            'reason': entry.reason,
+            'issued_by': entry.issued_by,
+            'agent_id': agent_user_id,
+        }
         try:
             from asgiref.sync import async_to_sync
             from channels.layers import get_channel_layer
             channel_layer = get_channel_layer()
-            async_to_sync(channel_layer.group_send)(
-                'security_dashboard',
-                {
-                    'type': 'watchlist_alert',
-                    'alert_level': entry.alert_level,
-                    'national_id': citizen.national_id,
-                    'reason': entry.reason,
-                    'issued_by': entry.issued_by,
-                    'agent_id': agent_user_id,
-                }
-            )
+            send = async_to_sync(channel_layer.group_send)
+            for group in groups:
+                send(group, payload)
         except Exception as e:
-            # L'alerte WebSocket ne doit jamais bloquer la vérification
             logger.error("SILENT_ALERT_FAILED", extra={'error': str(e)}, exc_info=True)
 
     def _log(

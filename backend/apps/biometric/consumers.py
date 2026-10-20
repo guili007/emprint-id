@@ -2,14 +2,17 @@ import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 
 ADMIN_ROLES = {'ROLE_ADMIN', 'ROLE_WATCHLIST_ADMIN'}
+MILITARY_ROLES = {'ROLE_BORDER'}
 
 
 class AlertConsumer(AsyncWebsocketConsumer):
     """
     WebSocket consumer pour les alertes watchlist temps réel.
 
-    Admins  → groupe "security_dashboard" (reçoivent tous les watchlist hits)
-    Terrain → groupe "alerts_<user_id>"  (alertes personnelles, usage futur)
+    Routing des groupes par rôle :
+      ROLE_ADMIN / ROLE_WATCHLIST_ADMIN → security_dashboard  (alertes CIVIL + ETAT)
+      ROLE_BORDER                       → military_dashboard   (alertes MILITAIRE + ETAT)
+      Autres rôles terrain              → alerts_<user_id>     (usage futur)
     """
 
     async def connect(self):
@@ -19,15 +22,16 @@ class AlertConsumer(AsyncWebsocketConsumer):
             return
 
         role = self.scope.get('role', '') or getattr(user, 'role', '')
+
         if role in ADMIN_ROLES:
             self.group_name = 'security_dashboard'
+        elif role in MILITARY_ROLES:
+            self.group_name = 'military_dashboard'
         else:
             self.group_name = f'alerts_{user.pk}'
 
         await self.channel_layer.group_add(self.group_name, self.channel_name)
         await self.accept()
-
-        # Confirme la connexion au client
         await self.send(text_data=json.dumps({'type': 'CONNECTED', 'group': self.group_name}))
 
     async def disconnect(self, close_code):
@@ -39,6 +43,7 @@ class AlertConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             'type': 'WATCHLIST_HIT',
             'alert_level': event['alert_level'],
+            'authority': event.get('authority', 'CIVIL'),
             'national_id': event['national_id'],
             'reason': event['reason'],
             'issued_by': event.get('issued_by', ''),

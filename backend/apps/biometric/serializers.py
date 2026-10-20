@@ -25,7 +25,7 @@ class WatchlistEntrySerializer(serializers.ModelSerializer):
     class Meta:
         model = WatchlistEntry
         fields = [
-            'id', 'citizen', 'alert_level', 'reason',
+            'id', 'citizen', 'alert_level', 'authority', 'reason',
             'issued_by', 'issued_at', 'expires_at', 'is_active',
         ]
         read_only_fields = ['id', 'issued_at', 'created_by']
