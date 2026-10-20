@@ -265,7 +265,11 @@ def severity_for_imei_swap(swap_count: int) -> str:
     Un swap = la même SIM (MSISDN) a été utilisée sur un IMEI différent.
     En pratique : 1 swap = changement d'appareil normal, 5+ = suspect.
 
-    TODO(human): Implémente la logique de sévérité.
     Retourne une des valeurs : 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
     """
-    pass  # TODO(human)
+    # Paliers : (seuil_minimum, sévérité)
+    thresholds = [(7, 'CRITICAL'), (4, 'HIGH'), (2, 'MEDIUM')]
+    for threshold, sev in thresholds:
+        if swap_count >= threshold:
+            return sev
+    return 'LOW'
