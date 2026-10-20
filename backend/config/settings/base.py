@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     'apps.intel',
     'apps.audit',
     'apps.comms',
+    'apps.field',
 ]
 
 MIDDLEWARE = [

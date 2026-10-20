@@ -34,4 +34,7 @@ urlpatterns = [
 
     # v6/comms — Module 06 Eyeshield Comms (SIM/IMEI + CDR + corrélation)
     path('api/v6/comms/', include('apps.comms.urls')),
+
+    # v7/field — Module 07 Eyeshield Field (agents terrain + sync différée)
+    path('api/v7/field/', include('apps.field.urls')),
 ]
