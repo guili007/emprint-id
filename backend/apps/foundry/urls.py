@@ -10,4 +10,7 @@ urlpatterns = [
 
     # Gov — dashboard opérationnel Ministères
     path('gov/', include('apps.foundry.gov.urls')),
+
+    # Health — dossier patient unifié + épidémiologie
+    path('health/', include('apps.foundry.health.urls')),
 ]
