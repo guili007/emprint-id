@@ -256,16 +256,28 @@ def vaccination_coverage(national_id: str) -> dict:
     Retourne le nombre de vaccins reçus, le nombre de vaccins obligatoires
     couverts, et le taux de couverture en pourcentage.
 
-    TODO(human): Implémenter la logique de calcul de la couverture vaccinale.
-    Voici le calendrier obligatoire de base de la RDC :
-        REQUIRED_VACCINES = ['BCG', 'VPO', 'DTC', 'VPHB', 'RR', 'YELLOW_FEVER']
-
-    La fonction doit :
-    1. Récupérer les vaccinations du patient depuis HealthVaccination
-    2. Extraire les codes vaccins uniques reçus
-    3. Comparer avec REQUIRED_VACCINES pour trouver les vaccins manquants
-    4. Calculer le taux (vaccins_couverts / total_obligatoires * 100)
-    5. Retourner un dict avec : received_count, covered_count, total_required,
-       coverage_pct (arrondi à 1 décimale), missing_vaccines (liste)
+    Retourne le nombre de vaccins reçus, le nombre de vaccins obligatoires
+    couverts, et le taux de couverture en pourcentage.
     """
-    pass
+    REQUIRED_VACCINES = ['BCG', 'VPO', 'DTC', 'VPHB', 'RR', 'YELLOW_FEVER']
+
+    received_codes = set(
+        HealthVaccination.objects.filter(patient__national_id=national_id)
+        .values_list('vaccin_code', flat=True)
+        .distinct()
+    )
+
+    covered        = [v for v in REQUIRED_VACCINES if v in received_codes]
+    missing        = [v for v in REQUIRED_VACCINES if v not in received_codes]
+    total_required = len(REQUIRED_VACCINES)
+    covered_count  = len(covered)
+
+    coverage_pct = round(covered_count / total_required * 100, 1) if total_required else 0.0
+
+    return {
+        'received_count':  len(received_codes),
+        'covered_count':   covered_count,
+        'total_required':  total_required,
+        'coverage_pct':    coverage_pct,
+        'missing_vaccines': missing,
+    }
