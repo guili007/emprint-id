@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     'apps.field',
     'apps.justice',
     'apps.health',
+    'apps.education',
 ]
 
 MIDDLEWARE = [

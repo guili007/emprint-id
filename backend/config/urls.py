@@ -43,4 +43,7 @@ urlpatterns = [
 
     # v9/health — Module 09 Eyeshield Health (dossiers médicaux + épidémio)
     path('api/v9/health/', include('apps.health.urls')),
+
+    # v10/education — Module 10 Eyeshield Education (registre scolaire national)
+    path('api/v10/education/', include('apps.education.urls')),
 ]
