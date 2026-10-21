@@ -235,19 +235,52 @@ def academic_risk_score(national_id: str) -> dict:
       - Alertes ouvertes de type ABANDON ou VULNERABLE
       - Présence d'un dossier à statut ABANDONNE dans l'historique
 
-    TODO(human): Implémenter la logique de calcul du score de risque académique.
-
-    La fonction doit :
-    1. Récupérer les résultats de l'élève (AcademicResult) et calculer la moyenne
-    2. Compter les alertes ouvertes ABANDON + VULNERABLE (SchoolAlert)
-    3. Vérifier si un dossier StudentRecord a statut ABANDONNE dans le passé
-    4. Calculer un score de 0 à 100 :
-         - Si moyenne < 50 : +40 points
-         - Si moyenne entre 50 et 60 : +20 points
-         - Par alerte ABANDON/VULNERABLE ouverte : +20 points (max +40)
-         - Si historique d'abandon : +30 points
-         - Clamp à 100
-    5. Déduire un niveau : LOW (0-30), MEDIUM (31-60), HIGH (61-80), CRITICAL (81+)
-    6. Retourner un dict avec : score, level, avg_note, open_alerts, has_dropout_history
+    Retourne un dict avec : score, level, avg_note, open_alerts, has_dropout_history.
     """
-    pass
+    from django.db.models import Avg
+
+    avg_note = AcademicResult.objects.filter(
+        student__national_id=national_id
+    ).aggregate(m=Avg('note'))['m']
+
+    open_alerts = SchoolAlert.objects.filter(
+        national_id=national_id,
+        statut='OUVERT',
+        alert_type__in=['ABANDON', 'VULNERABLE'],
+    ).count()
+
+    has_dropout_history = StudentRecord.objects.filter(
+        national_id=national_id,
+        statut='ABANDONNE',
+    ).exists()
+
+    score = 0
+    if avg_note is not None:
+        if avg_note < 50:
+            score += 40
+        elif avg_note < 60:
+            score += 20
+
+    score += min(open_alerts * 20, 40)
+
+    if has_dropout_history:
+        score += 30
+
+    score = min(score, 100)
+
+    if score <= 30:
+        level = 'LOW'
+    elif score <= 60:
+        level = 'MEDIUM'
+    elif score <= 80:
+        level = 'HIGH'
+    else:
+        level = 'CRITICAL'
+
+    return {
+        'score':               score,
+        'level':               level,
+        'avg_note':            round(float(avg_note), 2) if avg_note is not None else None,
+        'open_alerts':         open_alerts,
+        'has_dropout_history': has_dropout_history,
+    }
