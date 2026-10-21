@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     'apps.comms',
     'apps.field',
     'apps.justice',
+    'apps.health',
 ]
 
 MIDDLEWARE = [

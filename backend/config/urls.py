@@ -40,4 +40,7 @@ urlpatterns = [
 
     # v8/justice — Module 08 Eyeshield Justice (casier + mandats + alertes judiciaires)
     path('api/v8/justice/', include('apps.justice.urls')),
+
+    # v9/health — Module 09 Eyeshield Health (dossiers médicaux + épidémio)
+    path('api/v9/health/', include('apps.health.urls')),
 ]
